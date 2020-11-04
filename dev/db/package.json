@@ -1,0 +1,9 @@
+{
+    "name": "trading-bot-storage",
+    "version": "0.0.1",
+    "scripts": {
+        "docker:rebuild": "docker build -t supply-storage changes",
+        "docker:run": "docker run -it -e POSTGRES_DB=investing --name traiding-bot-storage -e POSTGRES_PASSWORD=000000 -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USERNAME=postgres -p 5555:5432 traiding-bot-storage",
+        "docker:run-with-volume": "docker run -it -e POSTGRES_DB=investing --name traiding-bot-storage -e POSTGRES_PASSWORD=000000 -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USERNAME=postgres -p 5555:5432 -v C:\\investing-storage:/var/lib/postgresql/data traiding-bot-storage"
+    }
+}
