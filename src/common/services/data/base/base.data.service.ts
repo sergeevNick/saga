@@ -60,9 +60,9 @@ export class BaseDataService {
 
         const response = await fetch(url, { method, headers, body });
 
-        // if (!response.ok) {
-        //     throw new Error(response.statusText);
-        // }
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
 
         // return response;
         return response.json();

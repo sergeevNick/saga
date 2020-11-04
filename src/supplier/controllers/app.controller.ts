@@ -9,7 +9,7 @@ export class AppController {
     private dataService = new BaseDataService();
     private storageAppService = new StorageAppService();
     private params = { table: 'order' };
-    private errorProbability = 0.5;
+    private errorProbability = 0.2;
     private interval: NodeJS.Timer;
 
     async update(req: express.Request, res: express.Response): Promise<void> {
@@ -17,43 +17,60 @@ export class AppController {
         const { event, payload } = req.body;
         const order = { id: payload } as Order;
 
-        if (event !== EventType.ORDER_STARTED) {
-            res.status(500).send(order);
-            return
+        res.status(200).send({ event: EventType.SUPPLY_STARTED });
+
+        if (event === EventType.ORDER_STARTED) {
+            await this.createSupply(order);
         }
 
+        if (event === EventType.DELIVERY_REJECTED) {
+            await this.updateSupply(payload, StatusType.REJECTED);
+        }
+
+        if (event === EventType.DELIVERY_RESOLVED) {
+            await this.updateSupply(payload, StatusType.RESOLVED);
+        }
+    }
+
+    private async createSupply(order: Order): Promise<void> {
         order.supplyStatus = StatusType.STARTED;
         await this.storageAppService.update<Order>(order, this.params);
         if (this.hasError()) {
             console.error('Error in supply');
             order.supplyStatus = StatusType.REJECTED;
             await this.storageAppService.update<Order>(order, this.params);
-            res.status(500).send(order);
+            await this.request(EventType.SUPPLY_REJECTED, order.id!, 3001);
             return;
         }
 
+        this.interval = setInterval(async () => {
+            await this.proceedSupply(order).catch(() => console.log('Delivery service is down'));
+        }, 1000 * 5);
+    }
+
+    private async updateSupply(orderId: string, status: StatusType): Promise<void> {
+        console.log('supplyStatus', status);
+        const order = { id: orderId, supplyStatus: status } as Order;
         await this.storageAppService.update<Order>(order, this.params);
 
-        res.status(200).send();
-        this.interval = setInterval( async() => {
-            await this.proceedSupply(order).catch(() => console.log('Delivery service is down'));
-        }, 1000);
+        const event = status === StatusType.REJECTED ? EventType.SUPPLY_REJECTED : EventType.SUPPLY_RESOLVED;
+        await this.request(event, order.id!, 3001);
     }
 
     private async proceedSupply(order: Order): Promise<void> {
-        const response = await this.dataService.post('http://localhost:3003', { data: {
-                event: EventType.SUPPLY_STARTED, payload: order.id
-            }});
-        if (!response.ok) {
-            console.log('supplyStatus', StatusType.REJECTED);
-            order.supplyStatus = StatusType.REJECTED;
-        } else {
-            console.log('supplyStatus', StatusType.RESOLVED);
-            order.supplyStatus = StatusType.RESOLVED;
-        }
+        console.log('request to delivery');
+        await this.request(EventType.SUPPLY_STARTED, order.id!, 3003);
 
-        await this.storageAppService.update<Order>(order, this.params);
+        console.log('cleared interval');
         clearInterval(this.interval);
+    }
+
+    private async request(event: EventType, id: string, port: number): Promise<any> {
+        return this.dataService.post(`http://localhost:${port}`, {
+            data: {
+                event: event, payload: id
+            }
+        });
     }
 
     private hasError(): boolean {

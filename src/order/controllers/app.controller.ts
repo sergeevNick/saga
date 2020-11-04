@@ -25,8 +25,10 @@ export class AppController {
         console.log('got request wit body', JSON.stringify(req.body, null, 4));
         const { event, payload } = req.body;
 
+        res.status(200).send({ event: EventType.ORDER_STARTED });
+
         if (event === EventType.ORDER_STARTED) {
-            await this.createOrder(res, payload)
+            await this.createOrder(payload)
         }
 
         if (event === EventType.SUPPLY_REJECTED) {
@@ -36,35 +38,33 @@ export class AppController {
         if (event === EventType.SUPPLY_RESOLVED) {
             await this.updateOrder(payload, StatusType.RESOLVED);
         }
+
     }
 
-    private async createOrder(res: express.Response, order: Order): Promise<void> {
+    private async createOrder(order: Order): Promise<void> {
         order.orderStatus = StatusType.STARTED;
         order.id = await this.storageAppService.update<Order>(order, this.params);
 
-        res.status(200).send();
         this.interval = setInterval(async () => {
             await this.proceedOrder(order).catch(() => console.log('Supply service is down'));
-        }, 1000);
+        }, 1000 * 5);
     }
 
     private async updateOrder(orderId: string, status: StatusType): Promise<void> {
         console.log('orderStatus', status);
         const order = { id: orderId, orderStatus: status } as Order;
         await this.storageAppService.update<Order>(order, this.params);
-        
-
     }
 
     private async proceedOrder(order: Order): Promise<void> {
         const event = EventType.ORDER_STARTED;
         const payload = order.id;
-        const response = await this.dataService.post('http://localhost:3002', { data: {
+        console.log('request to supplier');
+        await this.dataService.post('http://localhost:3002', { data: {
                 event, payload
             }});
 
-        if (response.ok) {
-            clearInterval(this.interval);
-        }
+        console.log('cleared interval');
+        clearInterval(this.interval);
     }
 }
