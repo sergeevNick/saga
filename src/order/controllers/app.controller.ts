@@ -12,7 +12,6 @@ export class AppController {
     private storageAppService = new StorageAppService();
     private sqlService = new BaseSqlDataService({ host: 'localhost', port: 5550, database: 'supply', user: 'postgres', password: '000000' });
     private params = { table: 'order' };
-    private interval: NodeJS.Timer;
 
     async list(_: express.Request, res: express.Response): Promise<void> {
         const query = 'select * from finance.order';
@@ -45,26 +44,17 @@ export class AppController {
         order.orderStatus = StatusType.STARTED;
         order.id = await this.storageAppService.update<Order>(order, this.params);
 
-        this.interval = setInterval(async () => {
-            await this.proceedOrder(order).catch(() => console.log('Supply service is down'));
-        }, 1000 * 5);
+        const event = EventType.ORDER_STARTED;
+        const payload = order.id;
+        console.log('request to supplier');
+        await this.dataService.post('http://localhost:3002', { data: {
+                event, payload
+            }}).catch(() => console.warn('Supply service is down'));
     }
 
     private async updateOrder(orderId: string, status: StatusType): Promise<void> {
         console.log('orderStatus', status);
         const order = { id: orderId, orderStatus: status } as Order;
         await this.storageAppService.update<Order>(order, this.params);
-    }
-
-    private async proceedOrder(order: Order): Promise<void> {
-        const event = EventType.ORDER_STARTED;
-        const payload = order.id;
-        console.log('request to supplier');
-        await this.dataService.post('http://localhost:3002', { data: {
-                event, payload
-            }});
-
-        console.log('cleared interval');
-        clearInterval(this.interval);
     }
 }

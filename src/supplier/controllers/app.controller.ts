@@ -10,7 +10,6 @@ export class AppController {
     private storageAppService = new StorageAppService();
     private params = { table: 'order' };
     private errorProbability = 0.2;
-    private interval: NodeJS.Timer;
 
     async update(req: express.Request, res: express.Response): Promise<void> {
         console.log('got request wit body', JSON.stringify(req.body, null, 4));
@@ -32,7 +31,7 @@ export class AppController {
         }
     }
 
-    private async createSupply(order: Order): Promise<void> {
+    async createSupply(order: Order): Promise<void> {
         order.supplyStatus = StatusType.STARTED;
         await this.storageAppService.update<Order>(order, this.params);
         if (this.hasError()) {
@@ -43,9 +42,9 @@ export class AppController {
             return;
         }
 
-        this.interval = setInterval(async () => {
-            await this.proceedSupply(order).catch(() => console.log('Delivery service is down'));
-        }, 1000 * 5);
+        console.log('request to delivery');
+        await this.request(EventType.SUPPLY_STARTED, order.id!, 3003)
+            .catch(() => console.warn('Delivery service is down'));
     }
 
     private async updateSupply(orderId: string, status: StatusType): Promise<void> {
@@ -55,14 +54,6 @@ export class AppController {
 
         const event = status === StatusType.REJECTED ? EventType.SUPPLY_REJECTED : EventType.SUPPLY_RESOLVED;
         await this.request(event, order.id!, 3001);
-    }
-
-    private async proceedSupply(order: Order): Promise<void> {
-        console.log('request to delivery');
-        await this.request(EventType.SUPPLY_STARTED, order.id!, 3003);
-
-        console.log('cleared interval');
-        clearInterval(this.interval);
     }
 
     private async request(event: EventType, id: string, port: number): Promise<any> {

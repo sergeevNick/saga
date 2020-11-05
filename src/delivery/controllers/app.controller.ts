@@ -18,6 +18,10 @@ export class AppController {
 
         res.status(200).send({ event: EventType.DELIVERY_STARTED });
 
+        await this.createDelivery(order);
+    }
+
+    async createDelivery(order: Order): Promise<void> {
         order.deliveryStatus = StatusType.STARTED;
         await this.storageAppService.update<Order>(order, this.params);
         if (this.hasError()) {
@@ -26,7 +30,8 @@ export class AppController {
             order.deliveryStatus = StatusType.REJECTED;
             await this.storageAppService.update<Order>(order, this.params);
 
-            await this.request(EventType.DELIVERY_REJECTED, order.id!);
+            await this.request(EventType.DELIVERY_REJECTED, order.id!)
+                .catch(() => console.warn('Supply service is down'));
             return;
         }
 
