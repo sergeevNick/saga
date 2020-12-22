@@ -26,14 +26,14 @@ export class AppController {
             }
         }
 
-        if (event === EventType.DELIVERY_UNKNOWN_ERROR) {
-            await this.updateSupply(payload, StatusType.UNKNOWN_ERROR);
-            await this.request(event, order.id!, 3001);
-        }
+        // if (event === EventType.DELIVERY_UNKNOWN_ERROR) {
+        //     await this.updateSupply(payload, StatusType.UNKNOWN_ERROR);
+        //     await this.request(EventType.SUPPLY_UNKNOWN_ERROR, order.id!, 3001);
+        // }
 
         if (event === EventType.DELIVERY_RESOLVED) {
             await this.updateSupply(payload, StatusType.RESOLVED);
-            await this.request(event, order.id!, 3001);
+            await this.request(EventType.SUPPLY_RESOLVED, order.id!, 3001);
         }
     }
 

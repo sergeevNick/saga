@@ -35,9 +35,9 @@ export class AppController {
             }
         }
 
-        if (event === EventType.SUPPLY_UNKNOWN_ERROR) {
-            await this.updateOrder(payload, StatusType.UNKNOWN_ERROR);
-        }
+        // if (event === EventType.SUPPLY_UNKNOWN_ERROR) {
+        //     await this.updateOrder(payload, StatusType.UNKNOWN_ERROR);
+        // }
 
         if (event === EventType.SUPPLY_RESOLVED) {
             await this.updateOrder(payload, StatusType.RESOLVED);
