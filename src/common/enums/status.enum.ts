@@ -1,5 +1,5 @@
 export enum StatusType {
     STARTED = 'STARTED',
-    REJECTED = 'REJECTED',
+    UNKNOWN_ERROR = 'UNKNOWN_ERROR',
     RESOLVED = 'RESOLVED'
 }

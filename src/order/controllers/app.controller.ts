@@ -21,23 +21,27 @@ export class AppController {
 
 
     async update(req: express.Request, res: express.Response): Promise<void> {
-        console.log('got request wit body', JSON.stringify(req.body, null, 4));
+        console.log('got request with body', JSON.stringify(req.body, null, 4));
         const { event, payload } = req.body;
 
-        res.status(200).send({ event: EventType.ORDER_STARTED });
-
         if (event === EventType.ORDER_STARTED) {
-            await this.createOrder(payload)
+            try {
+                await this.createOrder(payload)
+                await this.updateOrder(payload.id, StatusType.RESOLVED);
+                res.status(200).send({ event: EventType.ORDER_RESOLVED });
+            } catch (err) {
+                // await this.updateOrder(payload.id, StatusType.UNKNOWN_ERROR);
+                res.status(500).send({ event: EventType.ORDER_UNKNOWN_ERROR });
+            }
         }
 
-        if (event === EventType.SUPPLY_REJECTED) {
-            await this.updateOrder(payload, StatusType.REJECTED);
+        if (event === EventType.SUPPLY_UNKNOWN_ERROR) {
+            await this.updateOrder(payload, StatusType.UNKNOWN_ERROR);
         }
 
         if (event === EventType.SUPPLY_RESOLVED) {
             await this.updateOrder(payload, StatusType.RESOLVED);
         }
-
     }
 
     private async createOrder(order: Order): Promise<void> {
@@ -49,7 +53,7 @@ export class AppController {
         console.log('request to supplier');
         await this.dataService.post('http://localhost:3002', { data: {
                 event, payload
-            }}).catch(() => console.warn('Supply service is down'));
+            }});
     }
 
     private async updateOrder(orderId: string, status: StatusType): Promise<void> {

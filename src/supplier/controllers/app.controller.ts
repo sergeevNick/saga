@@ -12,22 +12,28 @@ export class AppController {
     private errorProbability = 0.2;
 
     async update(req: express.Request, res: express.Response): Promise<void> {
-        console.log('got request wit body', JSON.stringify(req.body, null, 4));
+        console.log('got request with body', JSON.stringify(req.body, null, 4));
         const { event, payload } = req.body;
         const order = { id: payload } as Order;
 
-        res.status(200).send({ event: EventType.SUPPLY_STARTED });
-
         if (event === EventType.ORDER_STARTED) {
-            await this.createSupply(order);
+            try {
+                await this.createSupply(order);
+                res.status(200).send({ event: EventType.SUPPLY_RESOLVED });
+            } catch (err) {
+                // await this.updateSupply(payload, StatusType.UNKNOWN_ERROR);
+                res.status(500).send({ event: EventType.SUPPLY_UNKNOWN_ERROR });
+            }
         }
 
-        if (event === EventType.DELIVERY_REJECTED) {
-            await this.updateSupply(payload, StatusType.REJECTED);
+        if (event === EventType.DELIVERY_UNKNOWN_ERROR) {
+            await this.updateSupply(payload, StatusType.UNKNOWN_ERROR);
+            await this.request(event, order.id!, 3001);
         }
 
         if (event === EventType.DELIVERY_RESOLVED) {
             await this.updateSupply(payload, StatusType.RESOLVED);
+            await this.request(event, order.id!, 3001);
         }
     }
 
@@ -35,25 +41,22 @@ export class AppController {
         order.supplyStatus = StatusType.STARTED;
         await this.storageAppService.update<Order>(order, this.params);
         if (this.hasError()) {
-            console.error('Error in supply');
-            order.supplyStatus = StatusType.REJECTED;
+            order.supplyStatus = StatusType.UNKNOWN_ERROR;
             await this.storageAppService.update<Order>(order, this.params);
-            await this.request(EventType.SUPPLY_REJECTED, order.id!, 3001);
-            return;
+
+            console.log('Error in supply');
+            throw new Error('Error in supply');
         }
 
         console.log('request to delivery');
-        await this.request(EventType.SUPPLY_STARTED, order.id!, 3003)
-            .catch(() => console.warn('Delivery service is down'));
+        await this.request(EventType.SUPPLY_STARTED, order.id!, 3003);
+        await this.updateSupply(order.id!, StatusType.RESOLVED);
     }
 
-    private async updateSupply(orderId: string, status: StatusType): Promise<void> {
+    async updateSupply(orderId: string, status: StatusType): Promise<void> {
         console.log('supplyStatus', status);
         const order = { id: orderId, supplyStatus: status } as Order;
         await this.storageAppService.update<Order>(order, this.params);
-
-        const event = status === StatusType.REJECTED ? EventType.SUPPLY_REJECTED : EventType.SUPPLY_RESOLVED;
-        await this.request(event, order.id!, 3001);
     }
 
     private async request(event: EventType, id: string, port: number): Promise<any> {
